@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy import select
-from schemes import TodoCreate, TodoOut, TodoUpdate
+from schemas import TodoCreate, TodoOut, TodoUpdate
 from database import Base, get_db, engine
 from models import Todo
 
