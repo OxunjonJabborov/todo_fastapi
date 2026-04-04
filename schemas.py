@@ -1,8 +1,20 @@
 from pydantic import BaseModel, Field
 
+class UserBase(BaseModel):
+    first_name: str = Field(max_length=50)
+    last_name: str = Field(max_length=50)
+    email: str = Field(max_length=100)
+
+class UserCreate(UserBase):
+    pass
+
+class UserOut(UserBase):
+    id: int = Field(ge=1)
+
 class TodoBase(BaseModel):
-    name:str = Field(max_length=100)
-    description:str = Field(max_length=200)
+    name: str = Field(max_length=100)
+    description: str = Field(max_length=200)
+    user_id: int = Field(ge=1)
 
 class TodoCreate(TodoBase):
     pass

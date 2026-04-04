@@ -1,8 +1,16 @@
-from sqlalchemy import String, Integer, Boolean
-from sqlalchemy.orm import Mapped, mapped_column
-from database import Base, engine
+from sqlalchemy import String, Integer, Boolean, ForeignKey
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+from database import Base
 
-Base.metadata.create_all(bind=engine)
+class User(Base):
+    __tablename__='users'
+    
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    first_name: Mapped[str] = mapped_column(String(length=50)) 
+    last_name: Mapped[str] = mapped_column(String(length=50))
+    email: Mapped[str] = mapped_column(String(length=100), unique=True)
+    
+    todos: Mapped['Todo'] = relationship(back_populates='user', cascade="all, delete-orphan")
 
 class Todo(Base):
     __tablename__='todos'
@@ -11,3 +19,6 @@ class Todo(Base):
     name: Mapped[str] = mapped_column(String(length=100))
     description: Mapped[str] = mapped_column(String(length=200))
     is_completed: Mapped[bool] = mapped_column(Boolean, default=False)
+    user_id: Mapped[int] = mapped_column(ForeignKey('users.id'), nullable=False)
+    
+    user: Mapped['User'] = relationship(back_populates='todos')
