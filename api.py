@@ -1,54 +1,109 @@
-from fastapi import APIRouter, HTTPException, Depends
+import asyncio
+
+from email_service import send_welcome_email
+
+import security
+import jwt
+
+from typing import List
 from sqlalchemy import select
-from schemas import TodoCreate, TodoOut, TodoUpdate, UserOut, UserCreate
-from database import Base, get_db, engine
+from sqlalchemy.ext.asyncio import AsyncSession as Session
+from fastapi import APIRouter, HTTPException, Depends, status, BackgroundTasks
+from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
+
+from schemas import TodoCreate, TodoOut, TodoUpdate, Token, UserOut, UserCreate
+from database import get_db
 from models import Todo, User
 
 
-Base.metadata.create_all(bind=engine)
-api_router = APIRouter(prefix="/api/todos")
+api_router = APIRouter(prefix="/api")
 
-@api_router.post("/users", response_model=UserOut)
-def create_user(user_in: UserCreate, db = Depends(get_db)):
-    user = User(**user_in.model_dump())
-    db.add(user)
-    db.commit()
-    db.refresh(user)
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+
+async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Token yaroqsiz yoki muddati tugagan",
+    )
+    try:
+        payload = jwt.decode(token, security.SECRET_KEY, algorithms=[security.ALGORITHM])
+        user_id: int | None = payload.get("sub")
+        if user_id is None:
+            raise credentials_exception
+    except jwt.InvalidTokenError:
+        raise credentials_exception
+    
+    user = await db.scalar(select(User).where(User.id == int(user_id)))
+    
+    if user is None:
+        raise credentials_exception
     return user
 
-@api_router.post("/", response_model=TodoOut)
-def create_todo(todo_in: TodoCreate, db = Depends(get_db)):
-    stmt = select(User).where(User.id == todo_in.user_id)
-    user = db.scalar(stmt)
-    
+@api_router.post("/users", response_model=UserOut)
+async def create_user(bg_tasks: BackgroundTasks,user_in: UserCreate, db: Session = Depends(get_db)):
+    user = await db.scalar(select(User).where(User.username == user_in.username))
+    if user:
+        raise HTTPException(status_code=400, detail="Bunday foydalanuvchi allaqachon mavjud...")
+
+    user = await db.scalar(select(User).where(User.email == user_in.email))
+    if user:
+        raise HTTPException(status_code=400, detail="Bu email bilan foydalanuvchi allaqachon mavjud...")
+
+    user_dict = user_in.model_dump()
+    hashed_password = security.get_password_hash(user_dict.pop("password"))
+
+    user = User(**user_dict, hashed_password=hashed_password)
+    db.add(user)
+    await db.commit()
+    await db.refresh(user)
+    bg_tasks.add_task(send_welcome_email, f"{user.email}")
+    return user
+
+@api_router.post('/users/login', response_model=Token)
+async def login(form: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+    user = await db.scalar(select(User).where(User.username == form.username))
     if not user:
-        raise HTTPException(status_code=404, detail=f'{todo_in.user_id} - raqamli user topilmadi...')
+        raise HTTPException(status_code=400, detail="Bunday foydalanuvchi mavjud emas...")
     
-    todo = Todo(**todo_in.model_dump())
-    db.add(todo)
-    db.commit()
-    db.refresh(todo)
+    if not security.verify_password(form.password, user.hashed_password):
+        raise HTTPException(status_code=400, detail="Noto'g'ri username yoki parol kiritidi...")
+    
+    access_token = security.create_access_token(data={"sub": str(user.id)})
+    return {"access_token": access_token, "token_type": "bearer"}
+
+@api_router.get("/users/me", response_model=UserOut)
+async def get_current_user_profile(current_user: User = Depends(get_current_user)):
+    return current_user
+
+@api_router.post("/todos", response_model=TodoOut)
+async def create_todo(todo_in: TodoCreate, db: Session = Depends(get_db), user: UserOut = Depends(get_current_user)):
+    
+    todo = Todo(**todo_in.model_dump(), user_id=user.id)
+    raise HTTPException(status_code=404, detail="Foydalanuvchi topilmadi...")
+    await db.commit()
+    await db.refresh(todo)
     return todo
 
-@api_router.get("/", response_model=list[TodoOut])
-def get_todos(db = Depends(get_db)):
+@api_router.get("/todos", response_model=list[TodoOut])
+async def get_todos(db: Session = Depends(get_db)):
     stmt = select(Todo)
-    todos = db.scalars(stmt).all()
+    result = await db.scalars(stmt)
+    todos = list(result)
     return todos
 
-@api_router.get("/{task_id}", response_model=TodoOut)
-def get_todo(task_id: int, db = Depends(get_db)):
+@api_router.get("/todos/{task_id}", response_model=TodoOut)
+async def get_todo(task_id: int, db = Depends(get_db)):
     stmt = select(Todo).where(Todo.id == task_id)
-    todo = db.scalar(stmt)
-    
+    todo = await db.scalar(stmt)
+
     if not todo:
         raise HTTPException(status_code=404, detail=f"{task_id} - raqamli todo topilmadi...")
     return todo
 
-@api_router.put("/{task_id}", response_model=TodoOut)
-def update_todo(task_id: int, todo_in: TodoUpdate, db = Depends(get_db)):
+@api_router.put("/todos/{task_id}", response_model=TodoOut)
+async def update_todo(task_id: int, todo_in: TodoUpdate, db = Depends(get_db)):
     stmt = select(Todo).where(Todo.id == task_id)
-    todo = db.scalar(stmt)
+    todo = await db.scalar(stmt)
 
     if not todo:
         raise HTTPException(status_code=404, detail=f"{task_id} - raqamli todo topilmadi...")
@@ -56,22 +111,22 @@ def update_todo(task_id: int, todo_in: TodoUpdate, db = Depends(get_db)):
     todo.name = todo_in.name
     todo.description = todo_in.description
     todo.is_completed = todo_in.is_completed
-
     db.add(todo)
-    db.commit()
-    db.refresh(todo)
+    db.add(todo)
+    await db.commit()
+    await db.refresh(todo)
 
     return todo
 
-@api_router.delete("/{task_id}")
-def delete_todo(task_id: int, db = Depends(get_db)):
+@api_router.delete("/todos/{task_id}")
+async def delete_todo(task_id: int, db = Depends(get_db)):
     stmt = select(Todo).where(Todo.id == task_id)
-    todo = db.scalar(stmt)
+    todo = await db.scalar(stmt)
 
     if not todo:
         raise HTTPException(status_code=404, detail=f"{task_id} - raqamli todo topilmadi...")
 
     db.delete(todo)
-    db.commit()
+    await db.commit()
 
     return {"detail": f"{task_id} - raqamli todo o'chirildi..."}

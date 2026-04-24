@@ -6,11 +6,15 @@ class User(Base):
     __tablename__='users'
     
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    username: Mapped[str] = mapped_column(String(length=50), unique=True)
     first_name: Mapped[str] = mapped_column(String(length=50)) 
     last_name: Mapped[str] = mapped_column(String(length=50))
     email: Mapped[str] = mapped_column(String(length=100), unique=True)
     
-    todos: Mapped['Todo'] = relationship(back_populates='user', cascade="all, delete-orphan")
+    todos: Mapped["Todo"] = relationship(back_populates='user', cascade="all, delete-orphan")
+
+    hashed_password: Mapped[str] = mapped_column(String(length=100))
+    phone_number: Mapped[str] = mapped_column(String(20), nullable=True)
 
 class Todo(Base):
     __tablename__='todos'
@@ -21,4 +25,4 @@ class Todo(Base):
     is_completed: Mapped[bool] = mapped_column(Boolean, default=False)
     user_id: Mapped[int] = mapped_column(ForeignKey('users.id'), nullable=False)
     
-    user: Mapped['User'] = relationship(back_populates='todos')
+    user: Mapped["User"] = relationship(back_populates='todos')

@@ -1,15 +1,20 @@
 from pydantic import BaseModel, Field
 
 class UserBase(BaseModel):
-    first_name: str = Field(max_length=50)
-    last_name: str = Field(max_length=50)
-    email: str = Field(max_length=100)
+    first_name: str = Field(max_length=50, examples=["Ali"])
+    last_name: str = Field(max_length=50, examples=["Valiyev"])
+    email: str = Field(max_length=100, examples=["ali.valiyev@example.com"])
 
 class UserCreate(UserBase):
-    pass
+    username: str = Field(min_length=3, max_length=50, examples=["AliValiyev"])
+    password: str = Field(min_length=6, max_length=100, examples=["securepassword"])
 
 class UserOut(UserBase):
     id: int = Field(ge=1)
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str
 
 class TodoBase(BaseModel):
     name: str = Field(max_length=100)
