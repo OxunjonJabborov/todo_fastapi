@@ -15,6 +15,7 @@ class User(Base):
 
     hashed_password: Mapped[str] = mapped_column(String(length=100))
     phone_number: Mapped[str] = mapped_column(String(20), nullable=True)
+    user_avatar: Mapped[str] = mapped_column(String(length=200), nullable=True)
 
 class Todo(Base):
     __tablename__='todos'

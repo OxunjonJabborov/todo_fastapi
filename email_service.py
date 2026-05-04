@@ -7,7 +7,7 @@ from email.message import EmailMessage
 
 load_dotenv()
 
-FROM_EMAIL = os.getenv('EMAIL_FROM')
+FROM_EMAIL = os.getenv('FROM_EMAIL')
 EMAIL_PASSWORD = os.getenv('EMAIL_PASSWORD')
 EMAIL_HOST = os.getenv('EMAIL_HOST')
 EMAIL_PORT = int(os.getenv('EMAIL_PORT', 465))
@@ -25,8 +25,8 @@ async def send_welcome_email(email: str):
     message.set_content('Thank you for registering with our service.\
                         We are glad to have you on board!')
     try:
-        with smtplib.SMTP_SSL(EMAIL_HOST, EMAIL_PORT) as smtp:
-            smtp.login(FROM_EMAIL, EMAIL_PASSWORD)
+        with smtplib.SMTP_SSL(EMAIL_HOST, EMAIL_PORT) as smtp: # type: ignore
+            smtp.login(FROM_EMAIL, EMAIL_PASSWORD) # type: ignore
             smtp.send_message(message)
     except Exception as e:
         print(f"Error sending email to {email}: {e}")

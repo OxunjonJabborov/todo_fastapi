@@ -1,14 +1,14 @@
 import asyncio
+import shutil
 
 from email_service import send_welcome_email
 
 import security
 import jwt
 
-from typing import List
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession as Session
-from fastapi import APIRouter, HTTPException, Depends, status, BackgroundTasks
+from fastapi import APIRouter, HTTPException, Depends, status, BackgroundTasks, UploadFile, File
 from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
 
 from schemas import TodoCreate, TodoOut, TodoUpdate, Token, UserOut, UserCreate
@@ -18,7 +18,7 @@ from models import Todo, User
 
 api_router = APIRouter(prefix="/api")
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/users/login")
 
 async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
     credentials_exception = HTTPException(
@@ -59,6 +59,22 @@ async def create_user(bg_tasks: BackgroundTasks,user_in: UserCreate, db: Session
     bg_tasks.add_task(send_welcome_email, f"{user.email}")
     return user
 
+@api_router.post('/users/upload_avatar/')
+async def upload_avatar(file: UploadFile = File(...), current_user: UserOut = Depends(get_current_user), db: Session = Depends(get_db)):
+    from main import UPLOAD_FOLDER
+    file_extension = file.filename.split(".")[-1]
+    file_location = f"{UPLOAD_FOLDER}/{current_user.id}_avatar.{file_extension}"
+    static_location = f"/static/{current_user.id}_avatar.{file_extension}"
+    with open(file_location, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+        
+    
+    current_user.user_avatar = static_location
+    db.add(current_user)
+    await db.commit()
+    await db.refresh(current_user)
+    return current_user
+
 @api_router.post('/users/login', response_model=Token)
 async def login(form: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     user = await db.scalar(select(User).where(User.username == form.username))
@@ -71,18 +87,25 @@ async def login(form: OAuth2PasswordRequestForm = Depends(), db: Session = Depen
     access_token = security.create_access_token(data={"sub": str(user.id)})
     return {"access_token": access_token, "token_type": "bearer"}
 
-@api_router.get("/users/me", response_model=UserOut)
-async def get_current_user_profile(current_user: User = Depends(get_current_user)):
-    return current_user
-
 @api_router.post("/todos", response_model=TodoOut)
 async def create_todo(todo_in: TodoCreate, db: Session = Depends(get_db), user: UserOut = Depends(get_current_user)):
     
     todo = Todo(**todo_in.model_dump(), user_id=user.id)
-    raise HTTPException(status_code=404, detail="Foydalanuvchi topilmadi...")
+    db.add(todo)
     await db.commit()
     await db.refresh(todo)
     return todo
+
+@api_router.get("/users/me", response_model=UserOut)
+async def get_current_user_profile(current_user: User = Depends(get_current_user)):
+    return current_user
+
+@api_router.get("/users", response_model=list[UserOut])
+async def get_users(db: Session = Depends(get_db)):
+    stmt = select(User)
+    result = await db.scalars(stmt)
+    users = list(result)
+    return users
 
 @api_router.get("/todos", response_model=list[TodoOut])
 async def get_todos(db: Session = Depends(get_db)):
@@ -111,7 +134,7 @@ async def update_todo(task_id: int, todo_in: TodoUpdate, db = Depends(get_db)):
     todo.name = todo_in.name
     todo.description = todo_in.description
     todo.is_completed = todo_in.is_completed
-    db.add(todo)
+
     db.add(todo)
     await db.commit()
     await db.refresh(todo)
