@@ -2,21 +2,20 @@ import os
 import time
 
 from fastapi import FastAPI, Request
-from fastapi.staticfiles import StaticFiles
-from api import api_router
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
+from config import UPLOAD_FOLDER
+from routes.todo import api_router
+from routes.users import api_router as users_router
 
 
 app = FastAPI()
 
-@app.get("/")
-def read_root():
-    return {"message": "Salom! Todo FastAPI ishlayapti"}
 
 @app.middleware("http")
 async def log_request(request: Request, call_next):
-    print(f"Requests: {request.method} {request.url}, {request.headers}")
+    print(f"Request: {request.method} {request.url.path}")
     start_time = time.time()
     response = await call_next(request)
     end_time = time.time()
@@ -31,7 +30,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.include_router(api_router)
+app.include_router(users_router)
 
-UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-app.mount("/static", StaticFiles(directory="uploads"), name="static")
+app.mount("/static", StaticFiles(directory=UPLOAD_FOLDER), name="static")

@@ -1,29 +1,40 @@
 from sqlalchemy import String, Integer, Boolean, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from database import Base
+from enums import Roles
+
 
 class User(Base):
-    __tablename__='users'
-    
+    __tablename__ = 'users'
+
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     username: Mapped[str] = mapped_column(String(length=50), unique=True)
-    first_name: Mapped[str] = mapped_column(String(length=50)) 
+    first_name: Mapped[str] = mapped_column(String(length=50))
     last_name: Mapped[str] = mapped_column(String(length=50))
     email: Mapped[str] = mapped_column(String(length=100), unique=True)
-    
-    todos: Mapped["Todo"] = relationship(back_populates='user', cascade="all, delete-orphan")
+
+    todos: Mapped[list["Todo"]] = relationship(
+        back_populates='user',
+        cascade="all, delete-orphan",
+    )
 
     hashed_password: Mapped[str] = mapped_column(String(length=100))
-    phone_number: Mapped[str] = mapped_column(String(20), nullable=True)
-    user_avatar: Mapped[str] = mapped_column(String(length=200), nullable=True)
+    phone_number: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    user_avatar: Mapped[str | None] = mapped_column(String(length=200), nullable=True)
+    role: Mapped[str] = mapped_column(
+        String(length=50),
+        default=Roles.USER.value,
+        nullable=False,
+    )
+
 
 class Todo(Base):
-    __tablename__='todos'
-    
+    __tablename__ = 'todos'
+
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     name: Mapped[str] = mapped_column(String(length=100))
     description: Mapped[str] = mapped_column(String(length=200))
     is_completed: Mapped[bool] = mapped_column(Boolean, default=False)
     user_id: Mapped[int] = mapped_column(ForeignKey('users.id'), nullable=False)
-    
+
     user: Mapped["User"] = relationship(back_populates='todos')
