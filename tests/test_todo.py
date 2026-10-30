@@ -199,6 +199,7 @@ class TodoApiTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200, response.text)
         user_id = response.json()["id"]
         self.assertEqual(response.json()["user_avatar"], f"/static/{user_id}_avatar.png")
+        self.assertNotIn("hashed_password", response.json())
 
         no_ext = self.client.post(
             "/users/upload_avatar/", headers=headers, files={"file": ("rasm", b"x")},

@@ -37,7 +37,7 @@ async def create_user(bg_tasks: BackgroundTasks, user_in: UserCreate, db: AsyncS
     return user
 
 
-@router.post('/upload_avatar/')
+@router.post('/upload_avatar/', response_model=UserOut)
 async def upload_avatar(
     file: UploadFile = File(...),
     current_user: User = Depends(get_current_user),
