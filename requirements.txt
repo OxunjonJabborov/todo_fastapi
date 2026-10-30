@@ -12,7 +12,6 @@ certifi==2026.2.25
 click==8.3.1
 colorama==0.4.6
 dnspython==2.8.0
-dotenv==0.9.9
 email-validator==2.3.0
 fastapi==0.135.2
 fastapi-cli==0.0.24
@@ -31,7 +30,6 @@ markdown-it-py==4.0.0
 MarkupSafe==3.0.3
 mdurl==0.1.2
 multidict==6.7.1
-passlib==1.7.4
 propcache==0.4.1
 pydantic==2.12.5
 pydantic-extra-types==2.11.1
