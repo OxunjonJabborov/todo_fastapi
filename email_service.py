@@ -1,12 +1,11 @@
 import smtplib
 from email.message import EmailMessage
 
-import aiohttp
-
-from config import EMAIL_HOST, EMAIL_PASSWORD, EMAIL_PORT, FROM_EMAIL, TELEGRAM_BOT_TOKEN
+from config import EMAIL_HOST, EMAIL_PASSWORD, EMAIL_PORT, FROM_EMAIL
 
 
-async def send_welcome_email(email: str):
+# Oddiy def: smtplib bloklovchi, FastAPI uni alohida thread'da ishga tushiradi.
+def send_welcome_email(email: str):
     if not FROM_EMAIL or not EMAIL_PASSWORD or not EMAIL_HOST:
         print("Email sozlamalari to'liq emas, xabar yuborilmadi.")
         return
@@ -25,22 +24,3 @@ async def send_welcome_email(email: str):
             smtp.send_message(message)
     except Exception as e:
         print(f"Error sending email to {email}: {e}")
-
-
-async def send_telegram_message(chat_id: str, message: str):
-    if not TELEGRAM_BOT_TOKEN:
-        print("Telegram bot token sozlanmagan, xabar yuborilmadi.")
-        return
-
-    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
-    async with aiohttp.ClientSession() as session:
-        payload = {
-            "chat_id": chat_id,
-            "text": message
-        }
-        try:
-            async with session.post(url, json=payload) as response:
-                if response.status != 200:
-                    print(f"Failed to send Telegram message: {response.status}")
-        except Exception as e:
-            print(f"Error sending Telegram message: {e}")
