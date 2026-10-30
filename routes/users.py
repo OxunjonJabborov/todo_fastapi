@@ -16,10 +16,10 @@ from models import User
 from database import get_db
 from schemas.users import Token, UserCreate, UserOut
 
-api_router = APIRouter(prefix='/users')
+router = APIRouter(prefix='/users')
 
 
-@api_router.post("/user", response_model=UserOut)
+@router.post("/user", response_model=UserOut)
 async def create_user(bg_tasks: BackgroundTasks, user_in: UserCreate, db: Session = Depends(get_db)):
     user = await db.scalar(select(User).where(User.username == user_in.username))
     if user:
@@ -40,7 +40,7 @@ async def create_user(bg_tasks: BackgroundTasks, user_in: UserCreate, db: Sessio
     return user
 
 
-@api_router.post('/upload_avatar/')
+@router.post('/upload_avatar/')
 async def upload_avatar(
     file: UploadFile = File(...),
     current_user: User = Depends(get_current_user),
@@ -63,7 +63,7 @@ async def upload_avatar(
     return current_user
 
 
-@api_router.post('/login', response_model=Token)
+@router.post('/login', response_model=Token)
 async def login(form: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     user = await db.scalar(select(User).where(User.username == form.username))
     if not user:
@@ -76,12 +76,12 @@ async def login(form: OAuth2PasswordRequestForm = Depends(), db: Session = Depen
     return {"access_token": access_token, "token_type": "bearer"}
 
 
-@api_router.get("/me", response_model=UserOut)
+@router.get("/me", response_model=UserOut)
 async def get_current_user_profile(current_user: User = Depends(get_current_user)):
     return current_user
 
 
-@api_router.get("/users", response_model=list[UserOut])
+@router.get("/users", response_model=list[UserOut])
 async def get_users(db: Session = Depends(get_db)):
     stmt = select(User)
     result = await db.scalars(stmt)
@@ -90,17 +90,17 @@ async def get_users(db: Session = Depends(get_db)):
     return users
 
 
-@api_router.get("/admin-only")
+@router.get("/admin-only")
 async def admin_panel(user: User = Depends(role_checker(Roles.ADMIN))):
     return {"msg": "Admin kirildi"}
 
 
-@api_router.get("/user-or-admin")
+@router.get("/user-or-admin")
 async def user_or_admin_panel(user: User = Depends(role_checker(Roles.ADMIN, Roles.USER))):
     return {"msg": f"{user.username} kirildi"}
 
 
-@api_router.put("/update_role/{user_id}")
+@router.put("/update_role/{user_id}")
 async def update_user_role(
     user_id: int,
     new_role: Roles,
