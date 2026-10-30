@@ -1,18 +1,11 @@
-import os
 from datetime import datetime, timedelta, timezone
 
 import bcrypt
 import jwt
-from dotenv import load_dotenv
 
-load_dotenv()
+from config import ACCESS_TOKEN_EXPIRE_MINUTES, SECRET_KEY
 
-SECRET_KEY = os.getenv(
-    "SECRET_KEY",
-    "dev-secret-key-change-me-before-production-32-bytes-minimum",
-)
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 30))
 
 
 def get_password_hash(password: str) -> str:

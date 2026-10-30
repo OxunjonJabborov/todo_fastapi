@@ -1,19 +1,9 @@
-import os
 import smtplib
 from email.message import EmailMessage
 
 import aiohttp
-from dotenv import load_dotenv
 
-load_dotenv()
-
-FROM_EMAIL = os.getenv('FROM_EMAIL')
-EMAIL_PASSWORD = os.getenv('EMAIL_PASSWORD')
-EMAIL_HOST = os.getenv('EMAIL_HOST')
-EMAIL_PORT = int(os.getenv('EMAIL_PORT', '465'))
-
-
-TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
+from config import EMAIL_HOST, EMAIL_PASSWORD, EMAIL_PORT, FROM_EMAIL, TELEGRAM_BOT_TOKEN
 
 
 async def send_welcome_email(email: str):
@@ -38,11 +28,11 @@ async def send_welcome_email(email: str):
 
 
 async def send_telegram_message(chat_id: str, message: str):
-    if not TOKEN:
+    if not TELEGRAM_BOT_TOKEN:
         print("Telegram bot token sozlanmagan, xabar yuborilmadi.")
         return
 
-    url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
+    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
     async with aiohttp.ClientSession() as session:
         payload = {
             "chat_id": chat_id,
