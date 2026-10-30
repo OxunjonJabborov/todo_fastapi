@@ -1,11 +1,10 @@
 from pathlib import Path
-import os
 import security
 import shutil
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, UploadFile
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession as Session
+from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi.security import OAuth2PasswordRequestForm
 
 from config import UPLOAD_FOLDER
@@ -20,13 +19,11 @@ router = APIRouter(prefix='/users')
 
 
 @router.post("/user", response_model=UserOut)
-async def create_user(bg_tasks: BackgroundTasks, user_in: UserCreate, db: Session = Depends(get_db)):
-    user = await db.scalar(select(User).where(User.username == user_in.username))
-    if user:
+async def create_user(bg_tasks: BackgroundTasks, user_in: UserCreate, db: AsyncSession = Depends(get_db)):
+    if await db.scalar(select(User).where(User.username == user_in.username)):
         raise HTTPException(status_code=400, detail="Bunday foydalanuvchi allaqachon mavjud...")
 
-    user = await db.scalar(select(User).where(User.email == user_in.email))
-    if user:
+    if await db.scalar(select(User).where(User.email == user_in.email)):
         raise HTTPException(status_code=400, detail="Bu email bilan foydalanuvchi allaqachon mavjud...")
 
     user_dict = user_in.model_dump()
@@ -36,7 +33,7 @@ async def create_user(bg_tasks: BackgroundTasks, user_in: UserCreate, db: Sessio
     db.add(user)
     await db.commit()
     await db.refresh(user)
-    bg_tasks.add_task(send_welcome_email, f"{user.email}")
+    bg_tasks.add_task(send_welcome_email, user.email)
     return user
 
 
@@ -44,27 +41,24 @@ async def create_user(bg_tasks: BackgroundTasks, user_in: UserCreate, db: Sessio
 async def upload_avatar(
     file: UploadFile = File(...),
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ):
     file_extension = Path(file.filename or "").suffix.lstrip(".").lower()
     if not file_extension:
         raise HTTPException(status_code=400, detail="Avatar fayl turi topilmadi...")
 
-    os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-    file_location = f"{UPLOAD_FOLDER}/{current_user.id}_avatar.{file_extension}"
-    static_location = f"/static/{current_user.id}_avatar.{file_extension}"
-    with open(file_location, "wb") as buffer:
+    file_name = f"{current_user.id}_avatar.{file_extension}"
+    with open(Path(UPLOAD_FOLDER) / file_name, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
 
-    current_user.user_avatar = static_location
-    db.add(current_user)
+    current_user.user_avatar = f"/static/{file_name}"
     await db.commit()
     await db.refresh(current_user)
     return current_user
 
 
 @router.post('/login', response_model=Token)
-async def login(form: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+async def login(form: OAuth2PasswordRequestForm = Depends(), db: AsyncSession = Depends(get_db)):
     user = await db.scalar(select(User).where(User.username == form.username))
     if not user:
         raise HTTPException(status_code=400, detail="Bunday foydalanuvchi mavjud emas...")
@@ -82,12 +76,8 @@ async def get_current_user_profile(current_user: User = Depends(get_current_user
 
 
 @router.get("/users", response_model=list[UserOut])
-async def get_users(db: Session = Depends(get_db)):
-    stmt = select(User)
-    result = await db.scalars(stmt)
-
-    users = list(result)
-    return users
+async def get_users(db: AsyncSession = Depends(get_db)):
+    return list(await db.scalars(select(User)))
 
 
 @router.get("/admin-only")
@@ -104,15 +94,14 @@ async def user_or_admin_panel(user: User = Depends(role_checker(Roles.ADMIN, Rol
 async def update_user_role(
     user_id: int,
     new_role: Roles,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     _current_user: User = Depends(role_checker(Roles.ADMIN)),
 ):
-    user = await db.scalar(select(User).where(User.id == user_id))
+    user = await db.get(User, user_id)
     if not user:
         raise HTTPException(status_code=404, detail="Foydalanuvchi topilmadi...")
 
     user.role = new_role.value
-    db.add(user)
     await db.commit()
     await db.refresh(user)
     return {"msg": f"{user.username} ning roli {new_role.value} ga o'zgartirildi"}
