@@ -19,7 +19,7 @@ class UserOut(UserBase):
 
     id: int
     username: str
-    role: Roles | None = Field(default=Roles.USER, examples=["user", "admin"])
+    role: Roles = Field(default=Roles.USER, examples=["user", "admin"])
     user_avatar: str | None = None
 
 

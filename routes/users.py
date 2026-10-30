@@ -64,7 +64,7 @@ async def login(form: OAuth2PasswordRequestForm = Depends(), db: AsyncSession = 
         raise HTTPException(status_code=400, detail="Bunday foydalanuvchi mavjud emas...")
 
     if not security.verify_password(form.password, user.hashed_password):
-        raise HTTPException(status_code=400, detail="Noto'g'ri username yoki parol kiritidi...")
+        raise HTTPException(status_code=400, detail="Noto'g'ri username yoki parol kiritildi...")
 
     access_token = security.create_access_token(data={"sub": str(user.id)})
     return {"access_token": access_token, "token_type": "bearer"}
