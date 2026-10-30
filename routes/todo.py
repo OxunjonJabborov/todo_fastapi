@@ -11,7 +11,7 @@ from schemas.todo import TodoCreate, TodoOut, TodoUpdate
 api_router = APIRouter(prefix="/todo")
 
 
-@api_router.post("/todo", response_model=TodoOut)
+@api_router.post("/", response_model=TodoOut)
 async def create_todo(todo_in: TodoCreate, db: Session = Depends(get_db),
                       user: User = Depends(role_checker(Roles.ADMIN))):
 
